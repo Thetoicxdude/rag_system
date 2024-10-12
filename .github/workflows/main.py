@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 from database import SessionLocal, Prompt, Response, Feedback
 from weaviate_client import client as weaviate_client
 
-# 导入 transformers 库
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
@@ -18,13 +17,13 @@ load_dotenv()
 
 app = FastAPI(title="带有 A/B 测试和反馈循环的 RAG 系统")
 
-LLAMA_MODEL_NAME = os.getenv("LLAMA_MODEL_NAME", "meta-llama/Llama-2-7b-chat-hf")  
+LLAMA_MODEL_NAME = os.getenv("LLAMA_MODEL_NAME", "meta-llama/Llama-2-7b-chat-hf")  # 示例模型名称
 try:
     tokenizer = AutoTokenizer.from_pretrained(LLAMA_MODEL_NAME)
     model = AutoModelForCausalLM.from_pretrained(
         LLAMA_MODEL_NAME,
         torch_dtype=torch.float16,
-        device_map="auto"  
+        device_map="auto" 
     )
     print(f"LLaMA 模型 '{LLAMA_MODEL_NAME}' 加载成功。")
 except Exception as e:
@@ -38,6 +37,7 @@ def get_db():
     finally:
         db.close()
 
+# 定义请求和响应模型
 class QueryRequest(BaseModel):
     prompt: str
 
@@ -52,25 +52,10 @@ class PromptResponse(BaseModel):
 
 class FeedbackRequest(BaseModel):
     response_id: int
-    user_rating: int  # 1 到 5
+    user_rating: int  
     comments: str = None
 
-MODEL_VERSIONS = ["llama-v1", "llama-v2"]  
-
-model_dict = {}
-tokenizer_dict = {}
-for version in MODEL_VERSIONS:
-    model_name = f"meta-llama/{version}"  
-    try:
-        tokenizer_dict[version] = AutoTokenizer.from_pretrained(model_name)
-        model_dict[version] = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch.float16,
-            device_map="auto"
-        )
-        print(f"LLaMA 模型 '{model_name}' 加载成功。")
-    except Exception as e:
-        print(f"加载 LLaMA 模型 '{model_name}' 失败：{e}")
+MODEL_VERSIONS = ["RAG", "No_RAG"]
 
 @app.post("/query", response_model=QueryResponse)
 def query_rag_system(request: QueryRequest, db: Session = Depends(get_db)):
@@ -89,42 +74,40 @@ def query_rag_system(request: QueryRequest, db: Session = Depends(get_db)):
     else:
         prompt_id = existing_prompt.id
 
-    try:
-        response = weaviate_client.query.get("Prompt", ["content"]) \
-            .with_near_text({"concepts": [prompt_text]}) \
-            .with_limit(5) \
-            .do()
-        retrieved_prompts = [hit["content"] for hit in response["data"]["Get"]["Prompt"]]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Weaviate 查询失败：{e}")
-
-    context = "\n".join(retrieved_prompts) if retrieved_prompts else ""
-
     model_version = random.choice(MODEL_VERSIONS)
 
-    try:
-        selected_tokenizer = tokenizer_dict.get(model_version)
-        selected_model = model_dict.get(model_version)
-        if not selected_tokenizer or not selected_model:
-            raise ValueError(f"模型版本 '{model_version}' 未加载。")
+    if model_version == "RAG":
+        try:
+            response = weaviate_client.query.get("Prompt", ["content"]) \
+                .with_near_text({"concepts": [prompt_text]}) \
+                .with_limit(5) \
+                .do()
+            retrieved_prompts = [hit["content"] for hit in response["data"]["Get"]["Prompt"]]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Weaviate 查询失败：{e}")
 
+        context = "\n".join(retrieved_prompts) if retrieved_prompts else ""
+    else:
+        context = ""
+
+    try:
         if context:
             input_text = f"上下文信息：\n{context}\n\n用户：{prompt_text}"
         else:
             input_text = f"用户：{prompt_text}"
 
-        inputs = selected_tokenizer.encode(input_text, return_tensors="pt").to(selected_model.device)
+        inputs = tokenizer.encode(input_text, return_tensors="pt").to(model.device)
 
-        outputs = selected_model.generate(
+        outputs = model.generate(
             inputs,
             max_length=512,
             temperature=0.7,
             top_p=0.9,
             do_sample=True,
-            eos_token_id=selected_tokenizer.eos_token_id
+            eos_token_id=tokenizer.eos_token_id
         )
 
-        generated_response = selected_tokenizer.decode(outputs[0], skip_special_tokens=True)
+        generated_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
         if "助手：" in generated_response:
             generated_response = generated_response.split("助手：")[-1].strip()
     except Exception as e:
