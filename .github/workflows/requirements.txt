@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+weaviate-client
+pydantic
+psycopg2-binary
+python-dotenv
+pandas
+transformers
+torch
