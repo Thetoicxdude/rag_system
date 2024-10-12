@@ -38,7 +38,7 @@ class Feedback(Base):
     __tablename__ = "feedback"
     id = Column(Integer, primary_key=True, index=True)
     response_id = Column(Integer, ForeignKey("responses.id"), index=True, nullable=False)
-    user_rating = Column(Integer, nullable=False)  
+    user_rating = Column(Integer, nullable=False) 
     comments = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -50,4 +50,5 @@ def create_tables():
 if __name__ == "__main__":
     create_tables()
     print("数据库表创建成功。")
+
 
