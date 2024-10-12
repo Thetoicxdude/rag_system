@@ -79,3 +79,25 @@ print(response.json())
 ```python
 import requests
 
+response = requests.post("http://localhost:8000/feedback", json={
+    "response_id": 1,
+    "user_rating": 4,
+    "comments": "Very informative response!"
+})
+print(response.json())
+```
+
+## Project Structure
+
+- `main.py`: FastAPI application and main logic
+- `database.py`: Database models and connection setup
+- `weaviate_client.py`: Weaviate client setup and schema initialization
+- `analyze_ab_testing.py`: Script for analyzing A/B testing results
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License.
