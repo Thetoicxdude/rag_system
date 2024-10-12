@@ -19,16 +19,15 @@ def analyze():
             return
 
         df = pd.DataFrame(data)
-
         df['response_length'] = df['content'].apply(len)
 
         avg_length = df.groupby('model_version')['response_length'].mean()
-        print("每个模型的平均响应长度：")
+        print("每个版本的平均响应长度：")
         print(avg_length)
         print("\n")
 
         count_responses = df['model_version'].value_counts()
-        print("每个模型的响应数量：")
+        print("每个版本的响应数量：")
         print(count_responses)
         print("\n")
 
@@ -46,11 +45,12 @@ def analyze():
             merged_df = feedback_df.merge(df, left_on='response_id', right_on='response_id', how='left')
 
             avg_rating = merged_df.groupby('model_version')['user_rating'].mean()
-            print("每个模型的平均用户评分：")
+            print("每个版本的平均用户评分：")
             print(avg_rating)
             print("\n")
+
             count_feedback = merged_df['model_version'].value_counts()
-            print("每个模型的反馈数量：")
+            print("每个版本的反馈数量：")
             print(count_feedback)
             print("\n")
         else:
