@@ -36,4 +36,3 @@ def setup_weaviate_schema():
 
 if __name__ == "__main__":
     setup_weaviate_schema()
-
